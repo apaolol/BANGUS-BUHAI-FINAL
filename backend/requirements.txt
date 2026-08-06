@@ -1,6 +1,31 @@
-fastapi>=0.111.0
-uvicorn[standard]>=0.30.0
-sqlmodel>=0.0.21
-pydantic>=2.7.0
-pydantic-settings>=2.3.0
-python-dotenv>=1.0.1
+# ==========================
+# Backend Framework
+# ==========================
+fastapi==0.111.1
+uvicorn[standard]==0.30.6
+
+# ==========================
+# Database
+# ==========================
+sqlmodel==0.0.22
+
+# ==========================
+# Validation & Config
+# ==========================
+pydantic==2.9.2
+pydantic-settings==2.5.2
+python-dotenv==1.0.1
+
+# ==========================
+# Machine Learning
+# ==========================
+tensorflow==2.20.0
+keras==3.12.0
+numpy==2.0.2
+scikit-learn==1.6.1
+joblib==1.4.2
+
+# ==========================
+# Utilities
+# ==========================
+pandas==2.2.3

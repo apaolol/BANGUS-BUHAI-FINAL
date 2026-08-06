@@ -18,10 +18,16 @@ from routes.feeding_routes import router as feeding_router
 from database.db import create_db_and_tables
 from config import settings
 
+from ml.inference import load_resources
+from routes.prediction_routes import router as prediction_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_tables()
+
+    load_resources()
+
     yield
 
 
@@ -43,8 +49,7 @@ app.include_router(tank_router, prefix="/tanks", tags=["Tanks"])
 app.include_router(water_log_router, prefix="/tanks", tags=["Water Logs"])
 app.include_router(feeding_router, prefix="/tanks", tags=["Feeding Logs"])
 app.include_router(user_router, prefix="/users", tags=["Users"])
-
-
+app.include_router(prediction_router, prefix="/tanks/{tank_id}/predictions", tags=["Predictions"])
 @app.get("/")
 def root():
     return {"message": "BANGUS BUHAI"}
