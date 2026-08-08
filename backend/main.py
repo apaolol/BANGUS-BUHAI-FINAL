@@ -9,6 +9,7 @@ from models.tank_profile import TankProfile
 from models.user_profile import User
 from models.water_log import WaterLog
 from models.feeding_log import FeedingLog
+from models.prediction import Prediction
 
 from routes.tank_routes import router as tank_router
 from routes.user_routes import router as user_router

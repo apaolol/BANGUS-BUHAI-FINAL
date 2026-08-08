@@ -1,3 +1,11 @@
+import os
+
+# Must be set before TensorFlow is imported. Keeps startup logs limited to
+# warnings/errors instead of the usual flood of build/CPU-instruction INFO
+# lines; does not affect model behavior or accuracy.
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+
+import warnings
 from pathlib import Path
 from typing import List
 
@@ -11,8 +19,14 @@ from models.water_log import WaterLog
 # Configuration
 # ============================================================================
 
+# Number of historical water-log readings the model expects per prediction.
+# Must match the InputLayer batch_shape (None, 48, 3) baked into the .keras
+# file, and the row count/order the scaler was fit on (Temperature, pH,
+# Turbidity). Do not change this without retraining the model.
 SEQ_LENGTH = 48
 
+# Resolved relative to this file (not the process cwd), so the model loads
+# correctly no matter where `uvicorn`/`python` is invoked from.
 MODEL_DIR = Path(__file__).parent / "models"
 MODEL_PATH = MODEL_DIR / "bangus_buhai_lstm_exp2.keras"
 SCALER_PATH = MODEL_DIR / "bangus_buhai_scaler.pkl"
@@ -33,15 +47,29 @@ def load_resources():
     """
     Loads the trained model and scaler into memory.
 
-    Safe to call multiple times.
+    Safe to call multiple times. Raises FileNotFoundError with the exact
+    expected path if either artifact is missing, and lets any underlying
+    load error (e.g. an incompatible keras/scikit-learn version) propagate
+    unmodified so the real cause is visible instead of being hidden behind
+    a generic failure.
     """
 
     global _model, _scaler
 
     if _model is None:
+        if not MODEL_PATH.exists():
+            raise FileNotFoundError(
+                f"ML model file not found at {MODEL_PATH}. "
+                "Expected 'bangus_buhai_lstm_exp2.keras' in ml/models/."
+            )
         _model = load_model(MODEL_PATH)
 
     if _scaler is None:
+        if not SCALER_PATH.exists():
+            raise FileNotFoundError(
+                f"Scaler file not found at {SCALER_PATH}. "
+                "Expected 'bangus_buhai_scaler.pkl' in ml/models/."
+            )
         _scaler = joblib.load(SCALER_PATH)
 
 
@@ -86,20 +114,36 @@ def prepare_sequence(logs: List[WaterLog]) -> np.ndarray:
     """
     Creates the model input.
 
+    Expects `logs` in chronological order (oldest -> newest); the caller
+    (services/prediction_service.py) is responsible for that ordering.
+
     Returns:
         (1,48,3)
     """
 
     if len(logs) < SEQ_LENGTH:
         raise ValueError(
-            f"Model requires {SEQ_LENGTH} water logs."
+            f"Model requires {SEQ_LENGTH} water logs, got {len(logs)}."
         )
 
     scaler = get_scaler()
 
     data = logs_to_numpy(logs)
 
-    scaled = scaler.transform(data)
+    # scaler.transform expects a plain (N, 3) array in the same column
+    # order it was fit on (Temperature, pH, Turbidity), which logs_to_numpy
+    # guarantees. sklearn emits a UserWarning here because the scaler was
+    # originally fit on a named DataFrame and we pass a raw ndarray; the
+    # warning is purely informational (column order, not column names,
+    # is what actually drives the transform) so it's suppressed rather
+    # than pulling in pandas just to silence it.
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="X does not have valid feature names",
+            category=UserWarning,
+        )
+        scaled = scaler.transform(data)
 
     sequence = scaled[-SEQ_LENGTH:]
 
@@ -134,7 +178,13 @@ def predict(logs: List[WaterLog]) -> dict:
         verbose=0,
     )
 
-    prediction = scaler.inverse_transform(prediction_scaled)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="X does not have valid feature names",
+            category=UserWarning,
+        )
+        prediction = scaler.inverse_transform(prediction_scaled)
 
     prediction = prediction[0]
 
