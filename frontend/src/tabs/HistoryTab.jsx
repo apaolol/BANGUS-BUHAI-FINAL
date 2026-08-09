@@ -13,6 +13,10 @@ export default function HistoryTab({ tanks, refreshTanks }) {
   const [predictionsLoading, setPredictionsLoading] = useState(false);
   const [predictionsError, setPredictionsError] = useState("");
 
+  const [feedings, setFeedings] = useState([]);
+  const [feedingsLoading, setFeedingsLoading] = useState(false);
+  const [feedingsError, setFeedingsError] = useState("");
+
   useEffect(() => {
     refreshTanks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -61,9 +65,37 @@ export default function HistoryTab({ tanks, refreshTanks }) {
     }
   }
 
+  async function loadFeedings() {
+    setFeedingsLoading(true);
+    setFeedingsError("");
+    try {
+      if (filterTankId) {
+        const data = await api.listFeedingLogs(filterTankId, { limit: 100 });
+        setFeedings(data.map((f) => ({ ...f, tank_id: Number(filterTankId) })));
+      } else {
+        // No "all tanks" feedings endpoint on the backend, so fetch per tank and merge.
+        const results = await Promise.all(
+          tanks.map((t) =>
+            api
+              .listFeedingLogs(t.id, { limit: 100 })
+              .then((data) => data.map((f) => ({ ...f, tank_id: t.id })))
+              .catch(() => [])
+          )
+        );
+        setFeedings(results.flat());
+      }
+    } catch (err) {
+      setFeedings([]);
+      setFeedingsError(err instanceof ApiError ? err.message : "Failed to load feeding logs.");
+    } finally {
+      setFeedingsLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadLogs();
     loadPredictions();
+    loadFeedings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterTankId, tanks.length]);
 
@@ -152,6 +184,39 @@ export default function HistoryTab({ tanks, refreshTanks }) {
                     <span className={`badge ${l.status}`}>{l.status}</span>
                   </td>
                   <td>{new Date(l.recorded_at).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="card">
+        <h2>Feeding Logs ({feedings.length})</h2>
+        {feedingsLoading && <p className="muted">Loading...</p>}
+        {!feedingsLoading && feedingsError && <Message type="error">{feedingsError}</Message>}
+        {!feedingsLoading && !feedingsError && feedings.length === 0 && (
+          <p className="muted">No feeding logs found.</p>
+        )}
+        {!feedingsLoading && feedings.length > 0 && (
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Tank</th>
+                <th>Feed Type</th>
+                <th>Amount (g)</th>
+                <th>Fed At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {feedings.map((f) => (
+                <tr key={`${f.tank_id}-${f.id}`}>
+                  <td>{f.id}</td>
+                  <td>{f.tank_id}</td>
+                  <td>{f.feed_type}</td>
+                  <td>{f.amount_grams}</td>
+                  <td>{new Date(f.fed_at).toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>

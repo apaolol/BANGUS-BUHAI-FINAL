@@ -2,10 +2,11 @@ import { useEffect, useState, useCallback } from "react";
 import { api } from "./api";
 import TanksTab from "./tabs/TanksTab";
 import WaterLogsTab from "./tabs/WaterLogsTab";
+import FeedingTab from "./tabs/FeedingTab";
 import PredictionsTab from "./tabs/PredictionsTab";
 import HistoryTab from "./tabs/HistoryTab";
 
-const TABS = ["Tanks", "Water Logs", "Predictions", "History"];
+const TABS = ["Tanks", "Water Logs", "Feeding", "Predictions", "History"];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("Tanks");
@@ -70,6 +71,13 @@ export default function App() {
       )}
       {activeTab === "Water Logs" && (
         <WaterLogsTab
+          tanks={tanks}
+          selectedTankId={selectedTankId}
+          setSelectedTankId={setSelectedTankId}
+        />
+      )}
+      {activeTab === "Feeding" && (
+        <FeedingTab
           tanks={tanks}
           selectedTankId={selectedTankId}
           setSelectedTankId={setSelectedTankId}
