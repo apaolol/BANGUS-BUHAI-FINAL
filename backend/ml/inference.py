@@ -34,10 +34,8 @@ _scaler = None
 # Resource Loading
 # ============================================================================
 
-def load_resources():
-    """
-    Loads the trained model and scaler into memory.
-    """
+def load_resources() -> None:
+    """Loads model weights + scaler from disk into global memory (runs once)."""
     global _model, _scaler
 
     if _model is None:
@@ -50,7 +48,7 @@ def load_resources():
         _model = BangusLSTM()
         checkpoint = torch.load(MODEL_PATH, map_location=torch.device('cpu'), weights_only=False)
         _model.load_state_dict(checkpoint["state_dict"])
-        _model.eval()
+        _model.eval()  # Set to inference mode (disables dropout, freezes batchnorm)
 
     if _scaler is None:
         if not SCALER_PATH.exists():
@@ -58,16 +56,18 @@ def load_resources():
                 f"Scaler file not found at {SCALER_PATH}. "
                 "Expected 'bangus_buhai_scaler.pkl' in ml/models/."
             )
-        _scaler = joblib.load(SCALER_PATH)
+        _scaler = joblib.load(SCALER_PATH)  # Load fitted sklearn scaler
 
 
-def get_model():
+def get_model() -> BangusLSTM:
+    """Returns loaded model (loads first if needed)."""
     if _model is None:
         load_resources()
     return _model
 
 
 def get_scaler():
+    """Returns loaded scaler (loads first if needed)."""
     if _scaler is None:
         load_resources()
     return _scaler
@@ -78,10 +78,7 @@ def get_scaler():
 # ============================================================================
 
 def logs_to_numpy(logs: List[WaterLog]) -> np.ndarray:
-    """
-    Converts WaterLog objects into a NumPy array.
-    Shape: (48, 3)
-    """
+    """Converts list of WaterLog objects → numpy array (n, 3) [temp, pH, turbidity]."""
     return np.array(
         [
             [
@@ -96,11 +93,7 @@ def logs_to_numpy(logs: List[WaterLog]) -> np.ndarray:
 
 
 def prepare_sequence(logs: List[WaterLog]) -> torch.Tensor:
-    """
-    Creates the model input sequence.
-    Expects `logs` in chronological order (oldest -> newest).
-    Returns tensor of shape (1, 48, 3).
-    """
+    """Validates 48 logs → scales → returns tensor (1, 48, 3) ready for model."""
     if len(logs) < SEQ_LENGTH:
         raise ValueError(
             f"Model requires {SEQ_LENGTH} water logs, got {len(logs)}."
@@ -115,10 +108,10 @@ def prepare_sequence(logs: List[WaterLog]) -> torch.Tensor:
             message="X does not have valid feature names",
             category=UserWarning,
         )
-        scaled = scaler.transform(data)
+        scaled = scaler.transform(data)  # Normalize: (48, 3)
 
-    sequence = scaled[-SEQ_LENGTH:]
-    sequence = np.expand_dims(sequence, axis=0)
+    sequence = scaled[-SEQ_LENGTH:]           # Keep last 48: (48, 3)
+    sequence = np.expand_dims(sequence, axis=0)  # Add batch dim: (1, 48, 3)
     return torch.as_tensor(sequence, dtype=torch.float32)
 
 
@@ -127,22 +120,19 @@ def prepare_sequence(logs: List[WaterLog]) -> torch.Tensor:
 # ============================================================================
 
 def predict(logs: List[WaterLog]) -> dict:
-    """
-    Predict future Temperature, pH and Turbidity for 1, 2, 3, and 4 hours ahead
-    using autoregressive forecasting.
-    """
+    """Runs autoregressive forecast: predicts 4 hours ahead using sliding window."""
     model = get_model()
     scaler = get_scaler()
 
-    sequence = prepare_sequence(logs)
+    sequence = prepare_sequence(logs)  # (1, 48, 3)
     predictions = {}
 
-    with torch.no_grad():
+    with torch.no_grad():  # Disable gradients for inference
         for horizon in range(1, 5):
-            # Model output shape: (1, 3)
+            # 1. Predict next step: (1, 48, 3) → (1, 3)
             prediction_scaled = model(sequence)
-            
-            # Inverse transform
+
+            # 2. Inverse transform to real values
             pred_np = prediction_scaled.cpu().numpy()
             with warnings.catch_warnings():
                 warnings.filterwarnings(
@@ -150,17 +140,18 @@ def predict(logs: List[WaterLog]) -> dict:
                     message="X does not have valid feature names",
                     category=UserWarning,
                 )
-                real_pred = scaler.inverse_transform(pred_np)[0]
-                
+                real_pred = scaler.inverse_transform(pred_np)[0]  # (3,) [temp, pH, turbidity]
+
+            # 3. Store prediction
             predictions[f"hour_{horizon}"] = {
                 "temperature": float(real_pred[0]),
                 "pH": float(real_pred[1]),
                 "turbidity": float(real_pred[2]),
             }
-            
-            # Autoregressive update: append new prediction, drop oldest point
-            next_step = prediction_scaled.unsqueeze(1) # shape: (1, 1, 3)
-            sequence = torch.cat([sequence[:, 1:, :], next_step], dim=1)
+
+            # 4. Autoregressive update: slide window forward
+            next_step = prediction_scaled.unsqueeze(1)  # (1, 3) → (1, 1, 3)
+            sequence = torch.cat([sequence[:, 1:, :], next_step], dim=1)  # Drop oldest, append new → (1, 48, 3)
 
     return predictions
 
@@ -170,4 +161,5 @@ def predict(logs: List[WaterLog]) -> dict:
 # ============================================================================
 
 def is_model_loaded() -> bool:
+    """Returns True if both model and scaler are loaded in memory."""
     return _model is not None and _scaler is not None
