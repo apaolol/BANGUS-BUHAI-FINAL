@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ==========================
 # Backend Framework py= 3.12.10
 # ==========================
@@ -33,3 +34,16 @@ numpy==2.0.2
 # matching version avoids that risk entirely.
 scikit-learn==1.9.0
 joblib==1.4.2
+=======
+fastapi[standard]
+uvicorn[standard]
+sqlmodel
+pydantic-settings
+python-multipart
+numpy
+scikit-learn
+torch
+# async MQTT client — replaces the missing paho-mqtt subscriber
+aiomqtt
+# WebSocket support is included in uvicorn[standard]
+>>>>>>> 406f2d9af2b4181581dcc953a7b6e5d9f7153fd8

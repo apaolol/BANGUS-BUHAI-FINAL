@@ -10,8 +10,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+<<<<<<< HEAD
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
+=======
+    "date-fns": "^4.4.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.1",
+    "recharts": "^3.10.1"
+>>>>>>> 406f2d9af2b4181581dcc953a7b6e5d9f7153fd8
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

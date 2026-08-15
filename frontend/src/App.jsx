@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { useEffect, useState, useCallback } from "react";
 import { api } from "./api";
 import TanksTab from "./tabs/TanksTab";
@@ -91,6 +92,25 @@ export default function App() {
         />
       )}
       {activeTab === "History" && <HistoryTab tanks={tanks} refreshTanks={refreshTanks} />}
+=======
+import { Routes, Route } from "react-router-dom";
+import Sidebar from "./components/Sidebar";
+import Dashboard from "./pages/Dashboard";
+import TankDetail from "./pages/TankDetail";
+import Users from "./pages/Users";
+
+export default function App() {
+  return (
+    <div className="app-shell">
+      <Sidebar />
+      <main className="main">
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/tanks/:id" element={<TankDetail />} />
+          <Route path="/users" element={<Users />} />
+        </Routes>
+      </main>
+>>>>>>> 406f2d9af2b4181581dcc953a7b6e5d9f7153fd8
     </div>
   );
 }

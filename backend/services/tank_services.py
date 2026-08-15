@@ -1,10 +1,13 @@
 from models.water_log import WaterLog
+<<<<<<< HEAD
 from models.feeding_log import FeedingLog
+=======
+>>>>>>> 406f2d9af2b4181581dcc953a7b6e5d9f7153fd8
 from models.prediction import Prediction
 
 from fastapi import HTTPException
 from models.tank_profile import CreateTankProfile, TankProfile
-from sqlmodel import Session, select
+from sqlmodel import Session, select, delete
 
 # Capacity is derived, not user-supplied: 1 mL of water is treated as
 # supporting roughly 1/600th of a gram of fish biomass at safe stocking density.
@@ -26,11 +29,9 @@ def create_tank(tank_profile: CreateTankProfile, db: Session):
     return db_tank
 
 
-# get all tanks, optionally filtered by owner
-def get_all_tanks(db: Session, skip: int = 0, limit: int = 10, owner_id: int | None = None):
+# get all tanks
+def get_all_tanks(db: Session, skip: int = 0, limit: int = 10):
     query = select(TankProfile)
-    if owner_id is not None:
-        query = query.where(TankProfile.owner_id == owner_id)
     tanks = db.exec(query.offset(skip).limit(limit)).all()
     return tanks
 
@@ -61,12 +62,20 @@ def delete_tank(tank_id: int, db: Session):
     if not tank:
         raise HTTPException(status_code=404, detail="Tank not found")
 
+<<<<<<< HEAD
     for log in db.exec(select(WaterLog).where(WaterLog.tank_id == tank_id)).all():
         db.delete(log)
     for feeding in db.exec(select(FeedingLog).where(FeedingLog.tank_id == tank_id)).all():
         db.delete(feeding)
     for prediction in db.exec(select(Prediction).where(Prediction.tank_id == tank_id)).all():
         db.delete(prediction)
+=======
+    # Bulk DELETE — one query per related table instead of N queries.
+    # Previously used `for log in logs: db.delete(log)` which executes
+    # one DELETE per row and hangs on tanks with thousands of logs.
+    db.exec(delete(WaterLog).where(WaterLog.tank_id == tank_id))
+    db.exec(delete(Prediction).where(Prediction.tank_id == tank_id))
+>>>>>>> 406f2d9af2b4181581dcc953a7b6e5d9f7153fd8
 
     db.delete(tank)
     db.commit()

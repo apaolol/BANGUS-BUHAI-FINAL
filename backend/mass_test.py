@@ -110,10 +110,18 @@ check(response, 201, "ML prediction")
 prediction = response.json()
 
 print("\nPrediction returned:")
+<<<<<<< HEAD
 print(f"  Temperature : {prediction['temperature']}")
 print(f"  pH          : {prediction['pH']}")
 print(f"  Turbidity   : {prediction['turbidity']}")
 print(f"  Predicted   : {prediction['predicted_for']}")
+=======
+print(f"  Temp 1h   : {prediction['temperature_1h']}")
+print(f"  pH 1h     : {prediction['pH_1h']}")
+print(f"  Turb 1h   : {prediction['turbidity_1h']}")
+print(f"  Temp 4h   : {prediction['temperature_4h']}")
+print(f"  Predicted From : {prediction['predicted_from']}")
+>>>>>>> 406f2d9af2b4181581dcc953a7b6e5d9f7153fd8
 
 
 # ============================================================
